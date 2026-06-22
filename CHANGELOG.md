@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.10] - 2026-06-22
+
+### Fixed
+
+- The configure UI's "About mureo" update check and one-click upgrade failed
+  on Windows. The pip subprocess calls captured output in text mode without
+  specifying an encoding, so Python decoded pip's UTF-8 output with the
+  platform locale codec (cp932 on a Japanese Windows) and raised
+  `UnicodeDecodeError` — silently killing the background update check and
+  breaking the upgrade. The three capturing pip calls (`version_check`,
+  `upgrade_action`, and the `mureo upgrade` CLI) now decode as UTF-8 with
+  `errors="replace"`, matching pip's actual output on every platform.
+- The read-only Reports dashboard logged a parse traceback on every render and
+  returned an empty summary whenever STATE.json held a campaign entry that did
+  not match the strict schema (e.g. a hand-authored / variant campaign using
+  `name`/`id` instead of `campaign_name`/`campaign_id`). The strict campaign
+  validation is kept for writers, but the read-only view now re-reads
+  tolerantly and skips nonconforming entries, so the platform totals and
+  reports still render. Report KPIs come from platform totals/periods and the
+  stored reports, not the campaign list.
+
 ## [0.10.9] - 2026-06-21
 
 ### Added
