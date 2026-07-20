@@ -25,6 +25,8 @@ from starlette.types import Receive, Scope, Send  # noqa: TC002
 
 from mureo.auth_oweb import activate_request
 from mureo.mcp.server import _create_server
+from mureo.oweb.credential_store import CredentialStore
+from mureo.oweb.proxy import OWebProxyMiddleware
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -35,9 +37,19 @@ _MCP_METHODS = ["GET", "POST", "DELETE", "OPTIONS"]
 class OWebCredentialsMiddleware(BaseHTTPMiddleware):
     """Bind ``X-Mureo-*`` headers to the current request's credential scope."""
 
+    def __init__(
+        self,
+        app: object,
+        proxy_only: bool = False,
+    ) -> None:
+        super().__init__(app)
+        self._proxy_only = proxy_only
+
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        if self._proxy_only or request.url.path.startswith("/api/oweb/mcp"):
+            return await call_next(request)
         async with activate_request(request.headers):
             return await call_next(request)
 
@@ -57,7 +69,11 @@ class StreamableMCPASGI:
         await self._session_manager.handle_request(scope, receive, send)
 
 
-def create_app() -> Starlette:
+def create_app(
+    credential_store: CredentialStore | None = None,
+    *,
+    proxy_only: bool = False,
+) -> Starlette:
     """Build the Starlette ASGI app exported by ``api/mcp/index.py``."""
     mcp_server = _create_server()
     mcp_asgi = StreamableMCPASGI()
@@ -73,14 +89,27 @@ def create_app() -> Starlette:
             yield
         mcp_asgi._session_manager = None
 
-    routes = [
-        Route("/", endpoint=mcp_asgi, methods=_MCP_METHODS),
-        Route("/api/mcp", endpoint=mcp_asgi, methods=_MCP_METHODS),
-        Route("/api/mcp/", endpoint=mcp_asgi, methods=_MCP_METHODS),
-    ]
+    routes = (
+        [Route("/", endpoint=mcp_asgi, methods=_MCP_METHODS)]
+        if proxy_only
+        else [
+            Route("/", endpoint=mcp_asgi, methods=_MCP_METHODS),
+            Route("/api/mcp", endpoint=mcp_asgi, methods=_MCP_METHODS),
+            Route("/api/mcp/", endpoint=mcp_asgi, methods=_MCP_METHODS),
+            Route("/api/oweb/mcp", endpoint=mcp_asgi, methods=_MCP_METHODS),
+            Route("/api/oweb/mcp/", endpoint=mcp_asgi, methods=_MCP_METHODS),
+        ]
+    )
 
     return Starlette(
         routes=routes,
-        middleware=[Middleware(OWebCredentialsMiddleware)],
+        middleware=[
+            Middleware(
+                OWebProxyMiddleware,
+                store=credential_store,
+                always_proxy=proxy_only,
+            ),
+            Middleware(OWebCredentialsMiddleware, proxy_only=proxy_only),
+        ],
         lifespan=lifespan,
     )

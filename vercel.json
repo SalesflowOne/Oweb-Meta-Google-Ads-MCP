@@ -3,6 +3,9 @@
   "functions": {
     "api/mcp/index.py": {
       "maxDuration": 60
+    },
+    "api/oweb/mcp/index.py": {
+      "maxDuration": 60
     }
   }
 }

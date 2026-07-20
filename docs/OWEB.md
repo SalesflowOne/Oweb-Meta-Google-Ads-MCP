@@ -120,6 +120,8 @@ uvicorn api.mcp.index:app --host 127.0.0.1 --port 8787
 
 Then use `MCP_URL=http://127.0.0.1:8787/` in the curl examples above.
 
+See also: `docs/OWEB_PROXY.md` (multi-tenant OWeb backend proxy).
+
 ## Security notes
 
 - Treat credential headers like secrets: use HTTPS only, avoid logging them, and prefer short-lived tokens where the platform allows.
