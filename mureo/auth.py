@@ -145,6 +145,12 @@ def load_google_ads_credentials(
                 customer_id=customer_id,
             )
 
+    # OWeb: credentials must come from request headers only — never env/file.
+    from mureo.auth_oweb import is_oweb_request
+
+    if is_oweb_request():
+        return None
+
     # Environment variable fallback
     return _load_google_ads_from_env()
 
@@ -176,6 +182,11 @@ def load_meta_ads_credentials(
                 token_obtained_at=meta_section.get("token_obtained_at"),
                 account_id=meta_section.get("account_id"),
             )
+
+    from mureo.auth_oweb import is_oweb_request
+
+    if is_oweb_request():
+        return None
 
     # Environment variable fallback
     return _load_meta_ads_from_env()
@@ -457,7 +468,8 @@ def _resolve_secret_store(path: Path | None) -> SecretStore:
     - ``path`` given → one-shot :class:`FilesystemSecretStore` bound to
       that path. Bypasses the process-wide RuntimeContext so tests that
       pass an explicit per-test file are isolated from any installed
-      alternate backend.
+      alternate backend. Ignored while an OWeb per-request store is
+      active (header credentials must not fall through to disk).
     - ``path`` is ``None`` → the SecretStore from
       :func:`mureo.core.runtime_context.get_runtime_context` (the
       default file-backed store today, or whatever a registered
@@ -468,8 +480,15 @@ def _resolve_secret_store(path: Path | None) -> SecretStore:
     reference an ``mureo.auth`` type, a top-level import here would
     create a circular dependency.
     """
+    from mureo.auth_oweb import get_oweb_secret_store
+
+    oweb_store = get_oweb_secret_store()
+    if oweb_store is not None:
+        return oweb_store
+
     if path is not None:
         return FilesystemSecretStore(path=path)
+
     from mureo.core.runtime_context import get_runtime_context
 
     return get_runtime_context().secret_store
