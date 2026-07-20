@@ -1,10 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api/oweb/mcp", "destination": "/api/mcp" },
+    { "source": "/api/oweb/mcp/", "destination": "/api/mcp" }
+  ],
   "functions": {
     "api/mcp/index.py": {
-      "maxDuration": 60
-    },
-    "api/oweb/mcp/index.py": {
       "maxDuration": 60
     }
   }

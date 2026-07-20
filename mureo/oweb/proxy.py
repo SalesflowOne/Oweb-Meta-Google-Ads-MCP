@@ -64,7 +64,10 @@ class OWebProxyMiddleware(BaseHTTPMiddleware):
         if self._always_proxy:
             return True
         path = request.url.path.rstrip("/") or "/"
-        return path.startswith(_PROXY_PREFIX.rstrip("/"))
+        if path.startswith(_PROXY_PREFIX.rstrip("/")):
+            return True
+        # Vercel rewrites /api/oweb/mcp → /api/mcp; customer header marks proxy calls.
+        return bool(request.headers.get(HEADER_CUSTOMER_ID, "").strip())
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
